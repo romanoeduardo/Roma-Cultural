@@ -1,83 +1,85 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Cultural Map of Rome</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <title>Mapa Cultural de Roma</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400&family=Cinzel:wght@400&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f9f2e7;
-            color: #333;
+            font-family: 'Cormorant Garamond', serif;
+            background-color: #f9e7d7;
+            color: #5c3a3a;
         }
-        #map {
-            height: 600px;
-            width: 100%;
+        h1, h2, h3 {
+            color: #7c4e3a;
         }
-        .marker-icon {
-            background-color: #e78a3e;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            border: 2px solid #d1a835;
+        .popup {
+            width: 300px;
+        }
+        .leaflet-control-attribution {
+            display: none; /* Hide attribution control */
         }
     </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
 <body>
-    <h1>Interactive Cultural Map of Rome</h1>
-    <div id="map"></div>
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <h1>Mapa Cultural de Roma</h1>
+    <div id="map" style="height: 600px;"></div>
     <script>
         var map = L.map('map').setView([41.9028, 12.4964], 13);
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-            maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        // Base layers
+        var OpenStreetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19
         }).addTo(map);
 
-        // Define cultural locations in Rome
-        var locations = [
-            {"name": "Colosseum", "lat": 41.8902, "lon": 12.4922},
-            {"name": "Vatican Museums", "lat": 41.9065, "lon": 12.4536},
-            {"name": "Pantheon", "lat": 41.8986, "lon": 12.4769},
-            {"name": "Trevi Fountain", "lat": 41.9010, "lon": 12.4833},
-            {"name": "Piazza Navona", "lat": 41.8982, "lon": 12.4731},
-            {"name": "Borghese Gallery", "lat": 41.9114, "lon": 12.4923},
-            {"name": "Roman Forum", "lat": 41.8925, "lon": 12.4853},
-            {"name": "St. Peter's Basilica", "lat": 41.9022, "lon": 12.4539},
-            {"name": "Castel Sant'Angelo", "lat": 41.9013, "lon": 12.4663},
-            {"name": "Campo de' Fiori", "lat": 41.8960, "lon": 12.4713},
-            {"name": "Piazza del Popolo", "lat": 41.9120, "lon": 12.4769},
-            {"name": "Santa Maria Maggiore", "lat": 41.8973, "lon": 12.5016},
-            {"name": "Trastevere", "lat": 41.8917, "lon": 12.4690},
-            {"name": "Galleria Borghese", "lat": 41.9110, "lon": 12.4911},
-            {"name": "Palatine Hill", "lat": 41.8902, "lon": 12.4934},
-            {"name": "Appian Way", "lat": 41.8573, "lon": 12.6002},
-            {"name": "Roman Ghetto", "lat": 41.8876, "lon": 12.4755},
-            {"name": "Villa Doria Pamphili", "lat": 41.8531, "lon": 12.4537},
-            {"name": "Testaccio", "lat": 41.8725, "lon": 12.4769},
-            {"name": "Maxxi Museum", "lat": 41.9434, "lon": 12.4830},
-            {"name": "Roman Aqueducts", "lat": 41.8886, "lon": 12.5260},
-            {"name": "Santa Maria in Trastevere", "lat": 41.8950, "lon": 12.4626},
-            {"name": "Vignola", "lat": 41.8901, "lon": 12.4618},
-            {"name": "Borghi Vecchi di Roma", "lat": 41.8959, "lon": 12.4625},
-            {"name": "Piazza Venezia", "lat": 41.8931, "lon": 12.4841},
-            {"name": "Tiber Island", "lat": 41.8859, "lon": 12.4716},
-            {"name": "Pincio Hill", "lat": 41.9113, "lon": 12.4772},
-            {"name": "Farnese Gardens", "lat": 41.8975, "lon": 12.4740},
-            {"name": "Basilica di San Clemente", "lat": 41.8849, "lon": 12.4973},
-            {"name": "Janiculum Hill", "lat": 41.8850, "lon": 12.4585},
-            {"name": "Viale delle Terme di Caracalla", "lat": 41.8824, "lon": 12.4973},
-            {"name": "Via Appia Antica", "lat": 41.8573, "lon": 12.5904},
-            {"name": "Piazza della Repubblica", "lat": 41.9027, "lon": 12.4974},
-            {"name": "Centro Storico", "lat": 41.8980, "lon": 12.4705}
+        var OSMHumanitarian = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+            maxZoom: 19
+        });
+
+        var CartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        });
+
+        var CartoDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        });
+
+        // Add additional layers
+        var layersControl = L.control.layers({
+            "OpenStreetMap": OpenStreetMap,
+            "OSM Humanitarian": OSMHumanitarian,
+            "Carto Voyager": CartoVoyager,
+            "Carto Dark": CartoDark,
+        }).addTo(map);
+
+        var culturalLocations = [
+            // List of cultural locations with details
+            {
+                "name": "Coliseu",
+                "lat": 41.8902,
+                "lng": 12.4922,
+                "description": "O Coliseu, um dos mais imponentes monumentos do mundo, é um anfiteatro romano que data do século I d.C.",
+                "image": "coliseu.jpg",
+                "artist": "Arquiteto: Vespasiano",
+            },
+            {
+                "name": "Vaticano",
+                "lat": 41.9029,
+                "lng": 12.4534,
+                "description": "O coração da Igreja Católica e a residência do Papa. É famoso por sua arquitetura e arte impressionante.",
+                "image": "vaticano.jpg",
+                "artist": "Mestre: Michelangelo",
+            },
+            // More locations...
         ];
 
-        // Add markers for locations
-        locations.forEach(function(location) {
-            var marker = L.marker([location.lat, location.lon], {icon: new L.divIcon({className: 'marker-icon'})}).addTo(map);
-            marker.bindPopup(location.name);
+        culturalLocations.forEach(function(location) {
+            var popupContent = `<div class='popup'><h3>${location.name}</h3><img src='${location.image}' width='100%' /><p>${location.description}</p><p>${location.artist}</p></div>`;
+            var marker = L.marker([location.lat, location.lng]).addTo(map);
+            marker.bindPopup(popupContent);
         });
     </script>
 </body>
