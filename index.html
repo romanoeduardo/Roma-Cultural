@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roma — Mapa Cultural</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Cinzel:wght@400;600&family=Source+Sans+3:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --terracotta: #8B3A2A;
+    --gold: #C4922A;
+    --cream: #F5EFE0;
+    --dark: #1A1208;
+    --ink: #2C1F0E;
+    --sand: #DDD0B3;
+    --moss: #5C6B3A;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Source Sans 3', sans-serif;
+    background: var(--dark);
+    color: var(--cream);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    background: var(--ink);
+    border-bottom: 1px solid var(--gold);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    z-index: 1000;
+    flex-shrink: 0;
+  }
+  .header-ornament { color: var(--gold); font-size: 22px; line-height: 1; }
+  header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--cream);
+  }
+  header p {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--sand);
+    letter-spacing: 0.05em;
+    margin-top: 1px;
+  }
+  .header-text { flex: 1; }
+  .pin-count {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+    background: rgba(196,146,42,0.12);
+    border: 1px solid rgba(196,146,42,0.3);
+    padding: 4px 12px;
+    border-radius: 2px;
+  }
+  #map { flex: 1; width: 100%; z-index: 1; }
+
+  /* ── Popup ── */
+  .leaflet-popup-content-wrapper {
+    background: var(--ink);
+    border: 1px solid var(--gold);
+    border-radius: 6px;
+    box-shadow: 0 10px 50px rgba(0,0,0,0.65);
+    padding: 0;
+    max-width: 360px;
+    min-width: 300px;
+    overflow: hidden;
+  }
+  .leaflet-popup-tip { background: var(--gold); }
+  .leaflet-popup-close-button {
+    color: white !important;
+    font-size: 20px !important;
+    top: 6px !important;
+    right: 8px !important;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.9);
+    z-index: 10;
+  }
+  .leaflet-popup-close-button:hover { color: var(--gold) !important; }
+  .leaflet-popup-content { margin: 0 !important; width: 100% !important; }
+
+  .popup-img-wrap {
+    width: 100%;
+    height: 190px;
+    overflow: hidden;
+    position: relative;
+    background: #0e0a04;
+  }
+  .popup-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 20%;
+    display: block;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  .popup-img-wrap img.loaded { opacity: 1; }
+  .popup-img-skeleton {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, #1a1208 30%, #2c1f0e 50%, #1a1208 70%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  .popup-img-caption {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(15,8,2,0.88));
+    padding: 22px 14px 8px;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 11px;
+    color: rgba(245,239,224,0.85);
+    letter-spacing: 0.03em;
+  }
+
+  .popup-inner { padding: 14px 17px 16px; }
+  .popup-category {
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .popup-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--cream);
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .popup-divider {
+    height: 1px;
+    background: linear-gradient(to right, var(--gold), transparent);
+    margin-bottom: 10px;
+  }
+  .popup-artist {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 9px;
+  }
+  .popup-artist-label {
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--gold);
+    text-transform: uppercase;
+    flex-shrink: 0;
+    margin-top: 2px;
+    min-width: 56px;
+  }
+  .popup-artist-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--sand);
+    line-height: 1.4;
+  }
+  .popup-works-label {
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .popup-works {
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 12px;
+    color: var(--cream);
+    line-height: 1.6;
+    font-weight: 300;
+  }
+  .popup-works li {
+    list-style: none;
+    padding-left: 13px;
+    position: relative;
+    margin-bottom: 2px;
+  }
+  .popup-works li::before {
+    content: '◆';
+    position: absolute;
+    left: 0;
+    color: var(--terracotta);
+    font-size: 6px;
+    top: 5px;
+  }
+  .popup-desc {
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 11.5px;
+    color: var(--sand);
+    line-height: 1.6;
+    font-weight: 300;
+    margin-top: 9px;
+    padding-top: 9px;
+    border-top: 1px solid rgba(196,146,42,0.2);
+    font-style: italic;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    background: rgba(26,18,8,0.92);
+    border: 1px solid rgba(196,146,42,0.4);
+    padding: 11px 15px;
+    border-radius: 4px;
+    backdrop-filter: blur(8px);
+  }
+  .legend-title {
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 7px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 4px;
+    font-size: 11px;
+    color: var(--sand);
+    font-family: 'Source Sans 3', sans-serif;
+  }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .ld-museu     { background: #8B3A2A; }
+  .ld-monumento { background: #4A6741; }
+  .ld-parque    { background: #5C6B3A; }
+  .ld-igreja    { background: #2A4A7A; }
+  .ld-bairro    { background: #7A5A2A; }
+  .ld-comercio  { background: #5A2A6A; }
+
+  /* ── Layer control ── */
+  .leaflet-control-layers {
+    background: rgba(26,18,8,0.92) !important;
+    border: 1px solid rgba(196,146,42,0.5) !important;
+    border-radius: 4px !important;
+    font-family: 'Source Sans 3', sans-serif !important;
+    font-size: 12px !important;
+    backdrop-filter: blur(8px);
+  }
+  .leaflet-control-layers-expanded { padding: 10px 14px !important; }
+  .leaflet-control-layers label { color: var(--sand) !important; margin-bottom: 4px !important; display: block; }
+  .leaflet-control-layers input { accent-color: var(--gold); margin-right: 6px; }
+  .leaflet-bar a {
+    background: var(--ink) !important;
+    color: var(--cream) !important;
+    border-color: rgba(196,146,42,0.4) !important;
+  }
+  .leaflet-bar a:hover { background: var(--terracotta) !important; }
+  .leaflet-control-attribution {
+    background: rgba(26,18,8,0.7) !important;
+    color: var(--sand) !important;
+    font-size: 9px !important;
+  }
+  .leaflet-control-attribution a { color: var(--gold) !important; }
+
+  @media (max-width: 600px) {
+    header h1 { font-size: 15px; }
+    .pin-count { display: none; }
+    .legend { display: none; }
+    .leaflet-popup-content-wrapper { max-width: 290px; min-width: 260px; }
+    .popup-img-wrap { height: 150px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-ornament">⚱</div>
+  <div class="header-text">
+    <h1>ROMA — MAPA CULTURAL</h1>
+    <p>Arte, Arquitetura &amp; Patrimônio da Cidade Eterna</p>
+  </div>
+  <div class="pin-count">31 LOCAIS</div>
+</header>
+
+<div id="map"></div>
+
+<script>
+const map = L.map('map', { center: [41.898, 12.479], zoom: 14, zoomControl: true });
+
+const osmStandard = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 19
+});
+const osmHot = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | HOT',
+  subdomains: 'abc', maxZoom: 19
+});
+const cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap &copy; CARTO',
+  subdomains: 'abcd', maxZoom: 19
+});
+const cartoDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_matter/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap &copy; CARTO',
+  subdomains: 'abcd', maxZoom: 19
+});
+
+osmStandard.addTo(map);
+L.control.layers({
+  "🗺️ OpenStreetMap": osmStandard,
+  "🎨 OSM Humanitário": osmHot,
+  "☀️ Carto Voyager": cartoLight,
+  "🌙 Carto Dark": cartoDark,
+}, null, { position: 'topright', collapsed: false }).addTo(map);
+
+/* marker factory */
+const catColors = {
+  museu:    { fill: '#8B3A2A', stroke: '#E05A42' },
+  monumento:{ fill: '#4A6741', stroke: '#6A9461' },
+  parque:   { fill: '#5C6B3A', stroke: '#7A9050' },
+  igreja:   { fill: '#2A4A7A', stroke: '#4470B8' },
+  bairro:   { fill: '#7A5A2A', stroke: '#C4922A' },
+  comercio: { fill: '#5A2A6A', stroke: '#9050A8' },
+};
+
+function makeIcon(cat) {
+  const c = catColors[cat] || catColors.museu;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 44" width="32" height="44">
+    <path d="M16 0C7.16 0 0 7.16 0 16c0 11.84 16 28 16 28s16-16.16 16-28C32 7.16 24.84 0 16 0z"
+      fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5"/>
+    <circle cx="16" cy="16" r="6" fill="rgba(10,4,0,0.55)"/>
+  </svg>`;
+  return L.divIcon({ html: svg, iconSize:[32,44], iconAnchor:[16,44], popupAnchor:[0,-46], className:'' });
+}
+
+/* popup builder with image */
+function buildPopup(o) {
+  const works = o.works.map(w => `<li>${w}</li>`).join('');
+  return `
+  <div class="popup-img-wrap">
+    <div class="popup-img-skeleton" id="skel_${o.id}"></div>
+    <img src="${o.img}" alt="${o.imgCaption}"
+         onload="this.classList.add('loaded'); const s=document.getElementById('skel_${o.id}'); if(s) s.style.display='none';"
+         onerror="this.parentElement.style.display='none'">
+    <div class="popup-img-caption">${o.imgCaption}</div>
+  </div>
+  <div class="popup-inner">
+    <div class="popup-category">${o.cat_label}</div>
+    <div class="popup-title">${o.title}</div>
+    <div class="popup-divider"></div>
+    <div class="popup-artist">
+      <span class="popup-artist-label">Artista / Arq.</span>
+      <span class="popup-artist-name">${o.artists}</span>
+    </div>
+    <div class="popup-works-label">Obras em Destaque</div>
+    <ul class="popup-works">${works}</ul>
+    <div class="popup-desc">${o.desc}</div>
+  </div>`;
+}
+
+/* ── location data ── */
+const locations = [
+  {
+    id:'l01', lat: 41.9064878, lng: 12.4536413,
+    cat: 'museu', cat_label: 'Museu · Vaticano',
+    title: 'Museus do Vaticano & Capela Sistina',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Michelangelo_-_Creation_of_Adam_%28cropped%29.jpg/800px-Michelangelo_-_Creation_of_Adam_%28cropped%29.jpg',
+    imgCaption: 'A Criação de Adão — Michelangelo, 1511 (detalhe)',
+    artists: 'Michelangelo, Rafael Sanzio, Laocoonte (escultura helenística)',
+    works: [
+      'Teto da Capela Sistina — Michelangelo (1508–1512)',
+      'O Juízo Final — Michelangelo (1536–1541)',
+      'Escola de Atenas — Rafael (Salas de Rafael)',
+      'Laocoonte e seus filhos — escultura helenística, séc. I a.C.',
+    ],
+    desc: 'O maior complexo museológico do mundo com 70.000 obras. A Criação de Adão é o fresco mais famoso da humanidade — pintada por Michelangelo deitado em andaimes ao longo de 4 anos.'
+  },
+  {
+    id:'l02', lat: 41.8986108, lng: 12.4768729,
+    cat: 'monumento', cat_label: 'Monumento · Roma Antiga',
+    title: 'Panteão',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Pantheon_Rome_2005.jpg/800px-Pantheon_Rome_2005.jpg',
+    imgCaption: 'O Panteão de Roma — 118–125 d.C.',
+    artists: 'Adriano (reconstrução, 118–125 d.C.) — Engenharia romana imperial',
+    works: [
+      'Cúpula de concreto romano — diâmetro de 43,3 m, recorde por séculos',
+      'Óculo central — abertura de 9 m, única fonte de luz',
+      'Túmulo de Rafael Sanzio',
+      'Túmulos dos Reis da Itália (Vítor Emanuel II e Umberto I)',
+    ],
+    desc: 'O edifício antigo mais bem preservado do mundo. Sua cúpula sem armação ainda é a maior do tipo depois de 19 séculos. O óculo é um tour de force: a chuva que entra escoa por orifícios invisíveis no piso de mármore.'
+  },
+  {
+    id:'l03', lat: 41.9142103, lng: 12.4921442,
+    cat: 'museu', cat_label: 'Galeria · Barroco',
+    title: 'Galeria Borghese',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Gian_Lorenzo_Bernini_-_Apollo_and_Daphne_-_Galleria_Borghese.jpg/600px-Gian_Lorenzo_Bernini_-_Apollo_and_Daphne_-_Galleria_Borghese.jpg',
+    imgCaption: 'Apolo e Dafne — Bernini, c.1622–25',
+    artists: 'Gian Lorenzo Bernini, Caravaggio, Antonio Canova, Rafael',
+    works: [
+      'Apolo e Dafne — Bernini (c.1622–25): mármore em movimento',
+      'O Rapto de Proserpina — Bernini (1621–22)',
+      'David — Bernini (1623–24)',
+      'Paulina Bonaparte como Vênus Vitrix — Canova (1805–08)',
+      'A Deposição — Rafael (1507)',
+    ],
+    desc: 'A "Rainha das coleções privadas do mundo". Bernini monopoliza o térreo com esculturas que desafiam a fisicalidade do mármore. Visitas limitadas a 2h — reserve com antecedência.'
+  },
+  {
+    id:'l04', lat: 41.9082914, lng: 12.482623,
+    cat: 'museu', cat_label: 'Villa · Museu · Renascimento',
+    title: 'Vila Médici',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Villa_Medici_Rome.jpg/800px-Villa_Medici_Rome.jpg',
+    imgCaption: 'Villa Medici — Annibale Lippi, 1564',
+    artists: 'Annibale Lippi (arquitetura, 1564); sede da Académie de France à Rome',
+    works: [
+      'Fachada com relevos antigos embutidos — frisos e estátuas greco-romanas',
+      'Jardins formais renascentistas com perspectiva axial',
+      'Coleção de escultura antiga dos Médici',
+    ],
+    desc: 'Adquirida pelo Cardeal Fernando de Médici em 1576, é sede da Académie de France à Rome desde Luís XIV. Compositores como Berlioz e Debussy aqui residiram como pensionistas do Estado francês.'
+  },
+  {
+    id:'l05', lat: 41.8902102, lng: 12.4922309,
+    cat: 'monumento', cat_label: 'Monumento · Roma Antiga',
+    title: 'Coliseu',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Colosseo_2020.jpg/800px-Colosseo_2020.jpg',
+    imgCaption: 'Anfiteatro Flaviano (Coliseu) — 72–80 d.C.',
+    artists: 'Engenharia romana imperial — dinastia Flaviana (72–80 d.C.)',
+    works: [
+      'Três ordens clássicas sobrepostas: dórica, jônica, coríntia',
+      'Sistema de arcadas e abóbadas em concreto romano',
+      'Hipogeu — labirinto subterrâneo com elevadores para gladiadores e animais',
+    ],
+    desc: 'O maior anfiteatro já construído (50.000 espectadores). Símbolo máximo da engenharia romana, utilizado por quatro séculos. "Enquanto o Coliseu existir, Roma existirá" — monge Bede, séc. VIII.'
+  },
+  {
+    id:'l06', lat: 41.8920906, lng: 12.4864378,
+    cat: 'monumento', cat_label: 'Sítio Arqueológico · Roma Antiga',
+    title: 'Foro Romano',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Forum_romanum_6k_%285765117275%29.jpg/800px-Forum_romanum_6k_%285765117275%29.jpg',
+    imgCaption: 'Foro Romano visto do Monte Palatino',
+    artists: 'Múltiplos arquitetos ao longo de séculos — coração cívico de Roma Antiga',
+    works: [
+      'Arco de Tito — comemorativo da destruição de Jerusalém (82 d.C.)',
+      'Arco de Septímio Severo (203 d.C.)',
+      'Templo de Saturno — colunas do séc. IV a.C.',
+      'Basílica de Maxêncio (312 d.C.)',
+    ],
+    desc: 'O centro político, religioso e comercial da Roma Antiga por mais de mil anos. Um livro aberto da História: cada pedra sobrepõe repúblicas, impérios e medievalidade em camadas arqueológicas.'
+  },
+  {
+    id:'l07', lat: 41.894891, lng: 12.482954,
+    cat: 'monumento', cat_label: 'Monumento · Séc. XIX–XX',
+    title: 'Monumento Vittorio Emanuelle II',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/Vittoriano_di_notte.jpg/800px-Vittoriano_di_notte.jpg',
+    imgCaption: 'Vittoriano (Altare della Patria) iluminado à noite',
+    artists: 'Giuseppe Sacconi (projeto, 1885); Angelo Zanelli (esculturas do altar)',
+    works: [
+      'Estátua equestre de Vítor Emanuel II — Angelo Zanelli (1911)',
+      'Altare della Patria com Túmulo do Soldado Desconhecido',
+      'Terrazzo panorâmico 360° — melhor vista gratuita de Roma',
+    ],
+    desc: 'Apelidado de "bolo de noiva" pelos romanos, construído em mármore branco de Botticino. Seu tamanho perturbou o tecido medieval do entorno mas oferece um dos melhores miradores da cidade.'
+  },
+  {
+    id:'l08', lat: 41.903358, lng: 12.489826,
+    cat: 'museu', cat_label: 'Palácio-Museu · Barroco',
+    title: 'Palazzo Barberini',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Raphael_-_La_fornarina.jpg/520px-Raphael_-_La_fornarina.jpg',
+    imgCaption: 'La Fornarina — Rafael, c.1519–20',
+    artists: 'Carlo Maderno, Bernini, Borromini (arquitetura, 1627–33)',
+    works: [
+      'La Fornarina — Rafael (c.1519–20): retrato da amante do pintor',
+      'Judith e Holofernes — Caravaggio (c.1598–99)',
+      'Enrique VIII — Hans Holbein o Jovem (c.1540)',
+      'Escada helicoidal — Borromini; Escada retangular — Bernini',
+      'Afresco do teto Gran Salone — Pietro da Cortona (1633–39)',
+    ],
+    desc: 'Palácio barroco dos Barberini (emblema: abelha). A rivalidade entre Bernini e Borromini está embutida no edifício — cada um projetou uma das duas escadarias.'
+  },
+  {
+    id:'l09', lat: 41.8979782, lng: 12.4815742,
+    cat: 'museu', cat_label: 'Palácio-Galeria · Barroco',
+    title: 'Galeria Doria Pamphilj',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Velazquez-inocentius_X.jpg/520px-Velazquez-inocentius_X.jpg',
+    imgCaption: 'Retrato do Papa Inocêncio X — Velázquez, c.1650',
+    artists: 'Caravaggio, Velázquez, Tiziano, Claude Lorrain',
+    works: [
+      'Retrato do Papa Inocêncio X — Velázquez (c.1650): "Troppo vero" — disse o pontífice',
+      'Descanso na Fuga para o Egito — Caravaggio (c.1595)',
+      'Magdalena Penitente — Caravaggio (c.1595)',
+      'Salão dos Espelhos — galeria privada do séc. XVII',
+    ],
+    desc: 'Única galeria nobre de Roma ainda em posse da família original. O audioguia é narrado por um descendente dos Pamphilj. Velázquez retratou o pontífice com tal brutalidade psicológica que ele disse: "Troppo vero".'
+  },
+  {
+    id:'l10', lat: 41.9282451, lng: 12.4668557,
+    cat: 'museu', cat_label: 'Museu · Arte Contemporânea',
+    title: 'MAXXI Museum',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/MAXXI_-_Museo_Nazionale_delle_Arti_del_XXI_secolo%2C_Rome_%282012%29.jpg/800px-MAXXI_-_Museo_Nazionale_delle_Arti_del_XXI_secolo%2C_Rome_%282012%29.jpg',
+    imgCaption: 'MAXXI — Zaha Hadid, inaugurado em 2009',
+    artists: 'Zaha Hadid (arquitetura, 2009)',
+    works: [
+      'O edifício — Zaha Hadid: fluxos curvos em concreto e aço (Prêmio Stirling 2010)',
+      'Coleção permanente de arquitetura italiana contemporânea',
+      'Exposições rotativas de arte visual, design e urbanismo',
+    ],
+    desc: 'Primeiro museu nacional italiano de arte do séc. XXI. A arquitetura de Zaha Hadid é a obra-prima: volumes que se entrecruzam sem ângulos retos, como uma partitura espacial.'
+  },
+  {
+    id:'l11', lat: 41.8848294, lng: 12.4704017,
+    cat: 'bairro', cat_label: 'Bairro Histórico',
+    title: 'Bairro de Trastevere',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Trastevere_rione_Roma.jpg/800px-Trastevere_rione_Roma.jpg',
+    imgCaption: 'Ruas medievais de Trastevere',
+    artists: 'Tecido urbano medieval — séc. XII ao XIX',
+    works: [
+      'Ruas de paralelepípedo medieval — malha orgânica do séc. XII',
+      'Piazza di Santa Maria in Trastevere — coração do bairro',
+      'Osterie e enotecas da cozinha romana popular',
+    ],
+    desc: 'O bairro mais autenticamente romano da cidade, à margem esquerda do Tibre. "Trans Tiberim" — além do Tibre. O que Paris tem em Montmartre, Roma tem em Trastevere: boemia, arte e vida de rua.'
+  },
+  {
+    id:'l12', lat: 41.8991633, lng: 12.4730742,
+    cat: 'monumento', cat_label: 'Praça · Barroco',
+    title: 'Piazza Navona',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Fontana_dei_Quattro_Fiumi_Roma_2009.jpg/600px-Fontana_dei_Quattro_Fiumi_Roma_2009.jpg',
+    imgCaption: 'Fontana dei Quattro Fiumi — Bernini, 1651',
+    artists: 'Gian Lorenzo Bernini (fontes); Francesco Borromini (Igreja de Sant\'Agnese)',
+    works: [
+      'Fontana dei Quattro Fiumi — Bernini (1651): Nilo, Ganges, Danúbio e Rio da Prata',
+      'Igreja de Sant\'Agnese in Agone — Borromini/Rainaldi (1652–72)',
+      'Fontana del Moro — Giacomo della Porta, figura central por Bernini',
+    ],
+    desc: 'Construída sobre o Estádio de Domiciano (86 d.C.). Um duelo barroco: dizem que Bernini orientou a estátua do Nilo cobrindo os olhos para não ter que ver a fachada rival de Borromini.'
+  },
+  {
+    id:'l13', lat: 41.9009325, lng: 12.483313,
+    cat: 'monumento', cat_label: 'Fonte · Barroco Tardio',
+    title: 'Fontana di Trevi',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Trevi_Fountain%2C_Rome%2C_Italy_2_-_May_2007.jpg/800px-Trevi_Fountain%2C_Rome%2C_Italy_2_-_May_2007.jpg',
+    imgCaption: 'Fontana di Trevi — Nicola Salvi, 1762',
+    artists: 'Nicola Salvi (projeto, 1762); Pietro Bracci (Netuno)',
+    works: [
+      'Netuno triunfante — Pietro Bracci: figura central de 5m em travertino',
+      'Cavalos marinhos com Tritões — esculturas laterais',
+      'Palácio Poli como cenário arquitetônico integrado',
+    ],
+    desc: 'A maior fonte barroca do mundo (26×20m). Marco terminal do Aqueduto Virgíneo (19 a.C.). Arrecada ~1 milhão de euros/ano em moedas, integralmente doados à Caritas de Roma.'
+  },
+  {
+    id:'l14', lat: 41.9051584, lng: 12.4805097,
+    cat: 'comercio', cat_label: 'Via Histórica · Compras',
+    title: 'Via del Corso / Via Condotti',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Via_Condotti_Roma.jpg/800px-Via_Condotti_Roma.jpg',
+    imgCaption: 'Via Condotti com a Escadaria Espanhola ao fundo',
+    artists: 'Urbanismo papal do séc. XVI; Antico Caffè Greco fundado em 1760',
+    works: [
+      'Via del Corso — eixo de 1,5 km entre Piazza del Popolo e Piazza Venezia',
+      'Via Condotti — grifes de luxo: Gucci, Bulgari, Valentino, Hermès',
+      'Antico Caffè Greco (1760) — frequentado por Goethe, Keats e Wagner',
+    ],
+    desc: 'Via del Corso era a pista das corridas de cavalos no Carnaval romano (corso = corrida). Via Condotti é o símbolo da elegância italiana, ligando a Piazza di Spagna ao Corso.'
+  },
+  {
+    id:'l15', lat: 41.9056978, lng: 12.482327,
+    cat: 'monumento', cat_label: 'Praça · Escadaria Barroca',
+    title: 'Piazza di Spagna & Escadaria Espanhola',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Sp%C3%A4tbarock_Rom_Spanische_Treppe.jpg/800px-Sp%C3%A4tbarock_Rom_Spanische_Treppe.jpg',
+    imgCaption: 'Scalinata di Trinità dei Monti — Francesco De Sanctis, 1725',
+    artists: 'Francesco De Sanctis (Escadaria, 1723–26); Pietro Bernini (Fontana della Barcaccia)',
+    works: [
+      'Fontana della Barcaccia — Pietro Bernini (1627–29): barco semissubmerso',
+      'Scalinata di Trinità dei Monti — De Sanctis: 135 degraus barrocos',
+      'Igreja de Trinità dei Monti no alto — arquitetura francesa em Roma (1502)',
+    ],
+    desc: 'A escadaria mais famosa do mundo foi financiada pela França e projetada por um italiano. Pietro Bernini criou a Barcaccia como solução engenhosa para a baixa pressão hídrica local.'
+  },
+  {
+    id:'l16', lat: 41.9138782, lng: 12.4853818,
+    cat: 'parque', cat_label: 'Parque Histórico',
+    title: 'Villa Borghese',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/Villa_Borghese_-_Temple_of_Aesculapius.jpg/800px-Villa_Borghese_-_Temple_of_Aesculapius.jpg',
+    imgCaption: 'Templo de Esculápio no lago da Villa Borghese',
+    artists: 'Flaminio Ponzio (casino, 1613); jardins redesenhados por Jacob Moore (séc. XVIII)',
+    works: [
+      'Galleria Borghese (dentro do parque) — coleção de Bernini e Caravaggio',
+      'Museu Etrusco di Villa Giulia',
+      'Bioparco di Roma — zoológico histórico',
+      'Terrazza del Pincio — mirante sobre Piazza del Popolo',
+    ],
+    desc: 'O "Central Park" romano, com 80 hectares de jardins, fontes e templos artificiais. Criado pelo Cardeal Scipione Borghese em 1605 como jardim privado. Aberto ao público em 1903.'
+  },
+  {
+    id:'l17', lat: 41.9111097, lng: 12.4779183,
+    cat: 'parque', cat_label: 'Jardim · Mirante',
+    title: 'Pincio (Terrazza del Pincio)',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Terrazza_del_Pincio_Roma.jpg/800px-Terrazza_del_Pincio_Roma.jpg',
+    imgCaption: 'Vista do Pincio sobre Piazza del Popolo e Roma',
+    artists: 'Giuseppe Valadier (projeto, 1809–14)',
+    works: [
+      'Terrazzo panorâmico sobre Piazza del Popolo — a mais bela vista de Roma ao entardecer',
+      'Aléia com 228 bustos de italianos ilustres — inaugurada por Napoleão',
+      'Relógio d\'água — G. B. Embriaco (1867), único em Roma',
+    ],
+    desc: 'Projetado por Valadier durante a ocupação napoleônica, o Pincio oferece a vista mais romântica de Roma, com a cúpula de São Pedro ao fundo. Primeiro jardim público de Roma no modelo francês.'
+  },
+  {
+    id:'l18', lat: 41.8886559, lng: 12.4875481,
+    cat: 'monumento', cat_label: 'Colina · Roma Antiga',
+    title: 'Monte Palatino',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Farnese_Gardens_on_the_Palatine_%28Rome%29.jpg/800px-Farnese_Gardens_on_the_Palatine_%28Rome%29.jpg',
+    imgCaption: 'Jardins Farnésios no Monte Palatino',
+    artists: 'Palácios imperiais romanos; Jardins Farnésios (1550) — primeiro jardim botânico privado europeu',
+    works: [
+      'Domus Flavia — palácio de Domiciano (81–96 d.C.)',
+      'Domus Augustana — residência privada de Augusto',
+      'Casa de Lívia — afrescos preservados do séc. I a.C.',
+      'Jardins Farnésios — Alessandro Farnese, sobre ruínas do palácio de Tibério',
+    ],
+    desc: 'A mais antiga das sete colinas de Roma — onde Rômulo fundou a cidade em 753 a.C. A palavra "palácio" deriva de "Palatium". Os imperadores construíram aqui suas residências por séculos.'
+  },
+  {
+    id:'l19', lat: 41.882981, lng: 12.47847,
+    cat: 'monumento', cat_label: 'Curiosidade · Cavaleiros de Malta',
+    title: 'Fechadura da Ordem de Malta',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Piranesi_piazza_cavalieri_di_malta.jpg/600px-Piranesi_piazza_cavalieri_di_malta.jpg',
+    imgCaption: 'Piazza dei Cavalieri di Malta — gravura de Piranesi, 1765',
+    artists: 'Giovanni Battista Piranesi (Piazza dei Cavalieri di Malta, 1765)',
+    works: [
+      'Piazza dei Cavalieri di Malta — único projeto arquitetônico de Piranesi',
+      '"Cannocchiale" — pela fechadura, São Pedro enquadrada em três territórios soberanos',
+    ],
+    desc: 'Uma das experiências mais singulares de Roma: pela fechadura do portão vê-se a cúpula de São Pedro centrada numa alameda de ciprestes — Itália, Vaticano e Ordem de Malta em um único olhar.'
+  },
+  {
+    id:'l20', lat: 41.9021667, lng: 12.4539367,
+    cat: 'igreja', cat_label: 'Basílica · Vaticano',
+    title: 'Basílica de São Pedro',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Basilica_di_San_Pietro_in_Vaticano_September_2015-1a.jpg/800px-Basilica_di_San_Pietro_in_Vaticano_September_2015-1a.jpg',
+    imgCaption: 'Basílica de São Pedro e Colonata de Bernini',
+    artists: 'Bramante, Rafael, Michelangelo (cúpula), Carlo Maderno (fachada), Bernini (colonata e baldaquino)',
+    works: [
+      'Pietà — Michelangelo (1498–99): única obra assinada pelo artista',
+      'Cúpula — Michelangelo/Giacomo della Porta: 136m de altura',
+      'Baldaquino de bronze — Bernini (1623–34): 29m, usa bronze do Panteão',
+      'Colonata da Piazza San Pietro — Bernini (1656–67): 284 colunas',
+    ],
+    desc: 'A maior basílica cristã do mundo (218m de comprimento). A construção durou 120 anos pelos maiores artistas do Renascimento e Barroco. A Pietà foi criada por Michelangelo aos 23 anos.'
+  },
+  {
+    id:'l21', lat: 41.8975986, lng: 12.4984084,
+    cat: 'igreja', cat_label: 'Basílica Papal · Paleocristã',
+    title: 'Basílica de Santa Maria Maggiore',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Santa_Maria_Maggiore_in_Rome%2C_Aug_2020.jpg/800px-Santa_Maria_Maggiore_in_Rome%2C_Aug_2020.jpg',
+    imgCaption: 'Fachada barroca — Ferdinando Fuga, 1743',
+    artists: 'Ferdinando Fuga (fachada, 1743); mosaicos medievais do séc. V',
+    works: [
+      'Mosaicos da nave — séc. V d.C.: os mais antigos mosaicos cristãos de Roma',
+      'Capella Sistina — Domenico Fontana para Sisto V (1585)',
+      'Capella Paolina — Paul V Borghese (1611)',
+      'Teto em ouro — lenda: revestido com ouro das Américas trazido por Colombo',
+    ],
+    desc: 'Uma das quatro basílicas papais de Roma, fundada no séc. IV. Os mosaicos do séc. V são insuperáveis na Roma cristã. O teto dourado — segundo a lenda — foi revestido com ouro dos Reis Católicos após a conquista da América.'
+  },
+  {
+    id:'l22', lat: 41.9114632, lng: 12.4762433,
+    cat: 'igreja', cat_label: 'Basílica · Renascimento/Barroco',
+    title: 'Basílica de Santa Maria del Popolo',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Michelangelo_Merisi_da_Caravaggio_-_The_Conversion_of_Saint_Paul_-_WGA04135.jpg/600px-Michelangelo_Merisi_da_Caravaggio_-_The_Conversion_of_Saint_Paul_-_WGA04135.jpg',
+    imgCaption: 'Conversão de São Paulo — Caravaggio, 1600–01',
+    artists: 'Bramante (reforma, 1472); Rafael (Cappella Chigi); Bernini; Caravaggio',
+    works: [
+      'Conversão de São Paulo — Caravaggio (1600–01)',
+      'Crucificação de São Pedro — Caravaggio (1600–01)',
+      'Cappella Chigi — Rafael (projeto, 1513); Bernini (esculturas, séc. XVII)',
+      'Daniel e Habacuc — Bernini (1655–61)',
+    ],
+    desc: 'Construída sobre o túmulo amaldiçoado de Nero. Dois Caravaggios na mesma Cappella Cerasi em diálogo revolucionário. A Cappella Chigi foi projetada por Rafael e completada por Bernini 150 anos depois.'
+  },
+  {
+    id:'l23', lat: 41.889493, lng: 12.4698361,
+    cat: 'igreja', cat_label: 'Basílica · Paleocristã/Medieval',
+    title: 'Basílica de Santa Maria em Trastevere',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Santa_Maria_in_Trastevere_Rome.jpg/800px-Santa_Maria_in_Trastevere_Rome.jpg',
+    imgCaption: 'Fachada medieval de Santa Maria in Trastevere',
+    artists: 'Pietro Cavallini (mosaicos, séc. XIII); Domenichino (teto, séc. XVII)',
+    works: [
+      'Mosaicos absidais — Pietro Cavallini (1290–91): precursor tridimensional de Giotto',
+      'Mosaico da fachada — séc. XII: Virgem com virgens e lâmpadas',
+      'Teto lacunar com Assunção — Domenichino (1617)',
+      'Colunas de granito das Termas de Caracalla',
+    ],
+    desc: 'Possivelmente a primeira igreja de Roma aberta ao culto público (séc. III). Os mosaicos de Cavallini prefiguram o Renascimento décadas antes de Giotto.'
+  },
+  {
+    id:'l24', lat: 41.8858811, lng: 12.505673,
+    cat: 'igreja', cat_label: 'Arquibasílica · Mãe de todas as Igrejas',
+    title: 'Arquibasílica de São João de Latrão',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/San_Giovanni_in_Laterano_2016.jpg/800px-San_Giovanni_in_Laterano_2016.jpg',
+    imgCaption: 'Fachada colossal — Alessandro Galilei, 1735',
+    artists: 'Francesco Borromini (interior, 1646–49); Alessandro Galilei (fachada, 1735)',
+    works: [
+      'Interior das naves — Borromini (1646–49): reforma barroca radical',
+      'Fachada colossal — Alessandro Galilei (1735)',
+      'Obelisco Lateranense — o mais alto de Roma (32m), do séc. XV a.C.',
+      'Baptistério — o mais antigo do mundo cristão (séc. IV)',
+    ],
+    desc: 'A catedral do Papa — hierarquicamente superior a São Pedro. Fundada por Constantino em 313 d.C. Borromini entalhrou doze apóstolos em nichos alternados numa das maiores reformas barrocas de Roma.'
+  },
+  {
+    id:'l25', lat: 41.8982541, lng: 12.4747238,
+    cat: 'igreja', cat_label: 'Igreja · Obra-Prima Borromini',
+    title: 'Igreja de Santo Ivo à Sapienza',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/SantIvo_Roma.jpg/600px-SantIvo_Roma.jpg',
+    imgCaption: 'Lanterna espiral de Sant\'Ivo — Borromini, 1642–60',
+    artists: 'Francesco Borromini (1642–60)',
+    works: [
+      'Lanterna espiralada — torre helicoidal única na arquitetura mundial',
+      'Planta estrelada hexagonal — geometria complexa em espaço exíguo',
+      'Cúpula interior — ilusão de altura com formas côncavas e convexas',
+    ],
+    desc: 'A obra-prima absoluta de Borromini, no pátio da antiga Universidade de Roma. A espiral da lanterna é única — nenhum outro edifício a imitou. Aberta apenas aos domingos de manhã.'
+  },
+  {
+    id:'l26', lat: 41.8886261, lng: 12.4666187,
+    cat: 'igreja', cat_label: 'Igreja · Tempietto Renascentista',
+    title: 'Igreja de São Pedro em Montório & Tempietto',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/BramantesTempietto.jpg/600px-BramantesTempietto.jpg',
+    imgCaption: 'Tempietto de Bramante — 1502, primeiro edifício do Alto Renascimento',
+    artists: 'Donato Bramante (Tempietto, 1502); Sebastiano del Piombo (interior)',
+    works: [
+      'Tempietto — Bramante (1502): templo circular com 15 colunas dóricas',
+      'Flagelação de Cristo — Sebastiano del Piombo (c.1516–24)',
+      'Cappella Raimondi — Bernini (esculturas, 1640s)',
+    ],
+    desc: 'O Tempietto é o primeiro edifício plenamente renascentista. Palladio o estudou e reproduziu em toda a Europa. Construído no local onde Pedro teria sido crucificado, no alto do Gianicolo.'
+  },
+  {
+    id:'l27', lat: 41.9046449, lng: 12.4942942,
+    cat: 'igreja', cat_label: 'Igreja · Escultura Barroca',
+    title: 'Igreja de Nossa Senhora da Vitória',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Gian_Lorenzo_Bernini_-_Estasi_di_Santa_Teresa_-_September_2015.jpg/600px-Gian_Lorenzo_Bernini_-_Estasi_di_Santa_Teresa_-_September_2015.jpg',
+    imgCaption: 'Êxtase de Santa Teresa — Bernini, 1647–52',
+    artists: 'Carlo Maderno (arquitetura, 1608–20); Gian Lorenzo Bernini (Cappella Cornaro)',
+    works: [
+      'Êxtase de Santa Teresa — Bernini (1647–52): a escultura teatral mais célebre do Barroco',
+      'Cappella Cornaro — espectadores esculpidos "assistem" à cena de camarotes laterais',
+    ],
+    desc: 'Bernini criou uma "peça de teatro" completa: Teresa em êxtase, o anjo com a flecha, luz natural filtrada por janela oculta, e membros da família Cornaro esculpidos nos camarotes a assistir.'
+  },
+  {
+    id:'l28', lat: 41.9018408, lng: 12.490747,
+    cat: 'igreja', cat_label: 'Igreja · Obra-Prima Borromini',
+    title: 'Igreja de San Carlo alle Quattro Fontane',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/SanCarlo_alle_QuattroFontane_Roma_cupola.jpg/600px-SanCarlo_alle_QuattroFontane_Roma_cupola.jpg',
+    imgCaption: 'Cúpula oval de San Carlino — Borromini, 1638–41',
+    artists: 'Francesco Borromini (1638–41, 1665–82)',
+    works: [
+      'Cúpula oval — elipse dentro de elipse, geometria revolucionária',
+      'Fachada ondulante — concavidades e convexidades que fazem o muro "respirar"',
+      'Claustro — de proporções perfeitas apesar do espaço mínimo',
+    ],
+    desc: 'Apelidado "San Carlino" — cabe inteiro debaixo de um pilar de São Pedro. O primeiro e último projeto independente de Borromini, que morreu antes de ver a fachada concluída.'
+  },
+  {
+    id:'l29', lat: 41.8937984, lng: 12.4931498,
+    cat: 'igreja', cat_label: 'Basílica · Escultura Renascentista',
+    title: 'Basílica de São Pedro in Vincoli',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Moses_Michelangelo.jpg/550px-Moses_Michelangelo.jpg',
+    imgCaption: 'Moisés — Michelangelo, c.1513–16',
+    artists: 'Michelangelo (Túmulo de Júlio II); arquitetura paleocristã — séc. V',
+    works: [
+      'Moisés — Michelangelo (c.1513–16): considerada pelo próprio artista sua obra mais perfeita',
+      'Lia e Raquel — Michelangelo (Vida Ativa e Contemplativa)',
+      'As Correntes de São Pedro — relíquia em urna de bronze',
+    ],
+    desc: 'A basílica guarda as correntes que aprisionaram Pedro. Michelangelo teria batido com o martelo no joelho do Moisés dizendo "perché non parli?" — por que não falas?'
+  },
+  {
+    id:'l30', lat: 41.8996104, lng: 12.4747406,
+    cat: 'igreja', cat_label: 'Igreja · Caravaggio em Destaque',
+    title: 'Igreja de São Luís dos Franceses',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/The_Calling_of_Saint_Matthew-Caravaggo_%281599-1600%29.jpg/800px-The_Calling_of_Saint_Matthew-Caravaggo_%281599-1600%29.jpg',
+    imgCaption: 'Vocação de São Mateus — Caravaggio, 1599–1600',
+    artists: 'Giacomo della Porta / Domenico Fontana (fachada, 1589); Caravaggio (Cappella Contarelli)',
+    works: [
+      'Vocação de São Mateus — Caravaggio (1599–1600): a luz como revelação divina',
+      'Martírio de São Mateus — Caravaggio (1599–1600)',
+      'São Mateus e o Anjo — Caravaggio (1602)',
+      'Santa Cecília — Guido Reni',
+    ],
+    desc: 'A Cappella Contarelli tem o único ciclo de três grandes telas de Caravaggio num único espaço — a obra que o revelou ao mundo com 28 anos. A "Vocação" é uma das pinturas mais influentes da história da arte.'
+  },
+  {
+    id:'l31', lat: 41.9008444, lng: 12.4742631,
+    cat: 'igreja', cat_label: 'Basílica · Renascimento/Caravaggio',
+    title: "Basilica di Sant'Agostino",
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/Michelangelo_Merisi_da_Caravaggio_-_Madonna_di_Loreto_-_Sant%27Agostino%2C_Rome.jpg/550px-Michelangelo_Merisi_da_Caravaggio_-_Madonna_di_Loreto_-_Sant%27Agostino%2C_Rome.jpg',
+    imgCaption: 'Madonna dei Pellegrini — Caravaggio, c.1604–06',
+    artists: 'Giacomo da Pietrasanta (fachada, 1483); Caravaggio; Rafael; Jacopo Sansovino',
+    works: [
+      'Madonna dei Pellegrini (Madona di Loreto) — Caravaggio (c.1604–06)',
+      'Madonna del Parto — Jacopo Sansovino (escultura, 1521)',
+      'Profeta Isaías — Rafael (afresco, 1512)',
+      'Túmulo de Santa Mônica — mãe de Santo Agostinho',
+    ],
+    desc: 'Caravaggio escandalizou com a sua "Madonna dei Pellegrini": dois peregrinos pobres, pés sujos, diante de uma Maria doméstica e mortal — uma Virgem do povo e um manifesto estético revolucionário.'
+  },
+];
+
+/* render markers */
+locations.forEach(loc => {
+  const icon = makeIcon(loc.cat);
+  const marker = L.marker([loc.lat, loc.lng], { icon }).addTo(map);
+  marker.bindPopup(buildPopup(loc), { maxWidth: 360, className: 'roma-popup' });
+});
+
+/* Legend */
+const legend = L.control({ position: 'bottomleft' });
+legend.onAdd = function () {
+  const div = L.DomUtil.create('div', '');
+  div.innerHTML = `
+    <div class="legend">
+      <div class="legend-title">Categorias</div>
+      <div class="legend-item"><div class="legend-dot ld-museu"></div> Museu / Galeria</div>
+      <div class="legend-item"><div class="legend-dot ld-monumento"></div> Monumento / Praça</div>
+      <div class="legend-item"><div class="legend-dot ld-parque"></div> Parque / Jardim</div>
+      <div class="legend-item"><div class="legend-dot ld-igreja"></div> Igreja / Basílica</div>
+      <div class="legend-item"><div class="legend-dot ld-bairro"></div> Bairro Histórico</div>
+      <div class="legend-item"><div class="legend-dot ld-comercio"></div> Via Histórica</div>
+    </div>`;
+  return div;
+};
+legend.addTo(map);
+</script>
+</body>
+</html>
